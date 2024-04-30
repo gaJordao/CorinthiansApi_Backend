@@ -2,8 +2,7 @@ from typing import List
 from fastapi import APIRouter, status, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
-from models.all_models import JogadoresModel
+from models.all_models import JogadoresModel, TitulosModel, TitulosJogadoresModel
 from schemas.jogadores_schema import JogadoresSchema
 from core.deps import get_session
 
@@ -40,14 +39,19 @@ async def get_jogadores(db: AsyncSession = Depends(get_session)):
     return jogadores
 
 @router.get("/j1", response_model=List[JogadoresSchema], status_code=status.HTTP_200_OK)
-async def get_jogadores_j1(session: AsyncSession = Depends(get_session)):
+async def get_jogadores_com_titulos(session: AsyncSession = Depends(get_session)):
     async with session as async_session:
-        # Carrega os jogadores com seus títulos associados
-        query = select(JogadoresModel).options(selectinload(JogadoresModel.titulos))
+        # Consulta para obter jogadores com seus títulos
+        query = (
+            select(JogadoresModel)
+            .options(selectinload(JogadoresModel.titulos))
+            .join(TitulosJogadoresModel)
+            .join(TitulosModel)
+        )
         result = await async_session.execute(query)
         jogadores = result.scalars().all()
 
-    # Mapeia os jogadores e seus títulos associados para um formato adequado
+    # Construindo a resposta
     jogadores_com_titulos = []
     for jogador in jogadores:
         titulos = [titulo.nome_titulo for titulo in jogador.titulos]
@@ -65,6 +69,8 @@ async def get_jogadores_j1(session: AsyncSession = Depends(get_session)):
         jogadores_com_titulos.append(jogador_dict)
 
     return jogadores_com_titulos
+
+
 
 
 
